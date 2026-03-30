@@ -1,26 +1,28 @@
 const express = require('express');
 const swaggerUi = require("swagger-ui-express");
-const swaggerJsdoc = require("swagger-jsdoc");
 const app = express();
+const cors = require("cors");
 
-const swaggerSpec = require("../src/routes/swagger");
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+const swaggerSpec = require("../src/routes/swagger/swagger");
+const questionareRoutes = require("../src/routes/ahanaLibrary/submitQuestionare.routes");
 
-const routes = require('./routes/index');
-const { errorHandler } = require('./common/middleware/errorHandler');
-const { requestLogger } = require('./common/middleware/requestLogger');
-
+// Middlewares
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(requestLogger);
 
-// Direct routes
-const submitQA = require("../src/flows/library/submitFmsQuestionare");
-app.use("/submitQA", submitQA);
+// Routes
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use("/api/questionare", questionareRoutes);
 
-app.use('/api', routes);
-
-// Global error handler — must be last
-app.use(errorHandler);
+//Test APIs
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    status: 'Running',
+    service: 'fms-backend',
+    port: 4000,
+    timestamp: new Date().toISOString()
+  });
+});
 
 module.exports = app;
