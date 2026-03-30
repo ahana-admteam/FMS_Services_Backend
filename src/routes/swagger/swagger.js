@@ -10,11 +10,10 @@ const options = {
     servers: [
       {
         url: "http://localhost:4000",
-        //  url: "/fms_api",
       },
     ],
   },
-  apis: ["./src/flows/**/*.js"]
+  apis: ["./src/routes/**/*.routes.js"], 
 };
 
 module.exports = swaggerJsdoc(options);

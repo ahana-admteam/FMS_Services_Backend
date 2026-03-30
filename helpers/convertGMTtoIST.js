@@ -37,8 +37,6 @@ function addDaysToADate(inputDate, daysToAdd) {
     
     return currentDate;
 }
-// Example usage
-console.log(addDaysToADate('2024-05-16', 5));
 
 
 function getCurrentDateInIST(inputTime) {
