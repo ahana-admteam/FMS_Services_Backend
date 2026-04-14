@@ -21,14 +21,17 @@ const calculateFmsPlannedCompletionTime = async (
   typeOfShift
 ) => {
   try {
+    // Normalize companyUrl: do not rely on token-provided company URL
+    companyUrl = companyUrl || process.env.DEFAULT_DB || process.env.DEFAULT_COMPANY || 'fms_default';
+
     console.log("employeeList", employeeList);
     console.log("typeOfShift" , typeOfShift);
     
     //Calculate Fms Planned Completion Time
     if (type == "TAThrs" && durationType == "hrs") {
-      infoLogger.log("info", `Company: ${companyUrl} hits the function calculateFmsPlannedComplitionTime and selected type as ${type} and duration type as ${durationType}`);
+      infoLogger.log("info", `DB: ${companyUrl} hits the function calculateFmsPlannedComplitionTime and selected type as ${type} and duration type as ${durationType}`);
       if (working == "OUTSIDE") {
-        infoLogger.log("info", `Company: ${companyUrl} selected a ${working} working hour shift with a duration of ${duration}.`);
+        infoLogger.log("info", `DB: ${companyUrl} selected a ${working} working hour shift with a duration of ${duration}.`);
         console.log("Inside Planned Completion Time IST OUTSIDE working hrs");
         let currentDateTimeFinal = moment
           .tz(taskStartTime, "Asia/Kolkata")
@@ -39,7 +42,7 @@ const calculateFmsPlannedCompletionTime = async (
         plannedCompletionTime = currentDateTimeFinal.format(
           "YYYY-MM-DDTHH:mm:ssZ"
         );
-        infoLogger.log("info", `The planned completion date and time for FMS, based on user inputs from company: ${companyUrl}, was successfully calculated with a result of ${plannedCompletionTime} (excluding IST timezone).`);
+        infoLogger.log("info", `The planned completion date and time for FMS, based on inputs for DB: ${companyUrl}, was successfully calculated with a result of ${plannedCompletionTime} (excluding IST timezone).`);
 
         plannedCompletionTimeIST = plannedCompletionTime;
         let employeeId;
@@ -51,9 +54,9 @@ const calculateFmsPlannedCompletionTime = async (
         }
 
       } else {
-        infoLogger.log("info", `Company: ${companyUrl} hits the function calculateFmsPlannedComplitionTime and selected type as ${type} and duration type as ${durationType}`);
+          infoLogger.log("info", `DB: ${companyUrl} hits the function calculateFmsPlannedComplitionTime and selected type as ${type} and duration type as ${durationType}`);
         try {
-          infoLogger.log("info", `Company: ${companyUrl} selected a ${working} working hour shift with a duration of ${duration}.`);
+          infoLogger.log("info", `DB: ${companyUrl} selected a ${working} working hour shift with a duration of ${duration}.`);
           const currentDateTimeFinal = moment
             .tz(taskStartTime, "Asia/Kolkata")
             .add(duration, "hours")
@@ -80,7 +83,7 @@ const calculateFmsPlannedCompletionTime = async (
               date: fetchShiftDate
             }
           );
-          infoLogger.log("info", `Company: ${companyUrl} successfully fetched working shift details based on the current date.`);
+          infoLogger.log("info", `DB: ${companyUrl} successfully fetched working shift details based on the current date.`);
 
           let shiftStartTimeStr = response.data.result[0].shiftStartTime;
           let shiftEndTimeStr = response.data.result[0].shiftEndTime;
@@ -108,7 +111,7 @@ const calculateFmsPlannedCompletionTime = async (
           const shiftEndTimeDate = new Date(shiftEndTime);
           console.log("shiftEndTimeDate", shiftEndTimeDate);
 
-          infoLogger.log("info", `Company: ${companyUrl} successfully calculated the shift end date and time: ${shiftEndTimeDate}.`);
+          infoLogger.log("info", `DB: ${companyUrl} successfully calculated the shift end date and time: ${shiftEndTimeDate}.`);
 
           function calculateBalanceHours(plannedCompletionTime, shiftEndTime) {
             if (plannedCompletionTime > shiftEndTime) {
@@ -213,7 +216,7 @@ const calculateFmsPlannedCompletionTime = async (
               balanceTime,
               companyUrl
             );
-            infoLogger.log("info", `Company: ${companyUrl} successfully calculated the planned completion date and time. After exceeding the shift end time and accounting for holidays, the planned date is ${plannedCompletionTimeIST}.`);
+            infoLogger.log("info", `DB: ${companyUrl} successfully calculated the planned completion date and time. After exceeding the shift end time and accounting for holidays, the planned date is ${plannedCompletionTimeIST}.`);
             console.log(
               "Planned completion time after holiday validation:",
               plannedCompletionTimeIST
@@ -224,7 +227,7 @@ const calculateFmsPlannedCompletionTime = async (
               balanceTime
             );
             plannedCompletionTimeIST = balanceTime;
-            infoLogger.log("info", `Company: ${companyUrl} successfully calculated the planned completion date and time , withput exceeding an shift end date and time the planned date is ${plannedCompletionTimeIST}.`);
+            infoLogger.log("info", `DB: ${companyUrl} successfully calculated the planned completion date and time , without exceeding a shift end date/time the planned date is ${plannedCompletionTimeIST}.`);
 
           }
 
@@ -232,13 +235,13 @@ const calculateFmsPlannedCompletionTime = async (
           plannedCompletionTime = plannedTimeDate;
           plannedCompletionTime = plannedTimeDate;
         } catch (error) {
-          errorLogger.log("error", `Company: ${companyUrl} failed to fetch working shifts of the company ${error.message}`)
+          errorLogger.log("error", `DB: ${companyUrl} failed to fetch working shifts: ${error.message}`)
           console.error("Error fetching working shift details:", error);
           return null;
         }
       }
     } else if (type == "TATdays" && durationType == "days") {
-      infoLogger.log("info", `Company: ${companyUrl} hits the function calculateFmsPlannedComplitionTime and selected type as ${type} and duration type as ${durationType} with end time as ${endTime}`);
+      infoLogger.log("info", `DB: ${companyUrl} hits the function calculateFmsPlannedComplitionTime and selected type as ${type} and duration type as ${durationType} with end time as ${endTime}`);
       const currentDateTimeFinal = moment
         .tz(taskStartTime, "Asia/Kolkata")
         .toDate();
@@ -275,7 +278,7 @@ const calculateFmsPlannedCompletionTime = async (
       let employeeId;
       if(typeOfShift === 'Individual'){
         employeeId = await fetchEmployeeShiftOnPlannedDate(companyUrl, plannedCompletionTimeIST, employeeList);
-        infoLogger.log("info", `Company URL: ${companyUrl} successfully calculated the planned completion date based on the given input, after verifying holidays and other factors: ${plannedCompletionTimeIST}.`);
+        infoLogger.log("info", `DB: ${companyUrl} successfully calculated the planned completion date based on the given input, after verifying holidays and other factors: ${plannedCompletionTimeIST}.`);
         return { plannedCompletionTimeIST, employeeId };
       } else{
         // if the type of the shift is all shift
