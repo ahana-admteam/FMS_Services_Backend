@@ -8,7 +8,8 @@ const { infoLogger } = require("../../../middleware/logger");
 
 //CONFIG
 const { user } = require("../../config/configData");
-const { userName, userID, companyUrl, userEmail } = user;
+const { userName, userID, userEmail } = user;
+const DEFAULT_DB = process.env.DEFAULT_DB || 'fms_default';
 
 //MODELS
 const FmsQA = require("../../models/fmsQA.model");
@@ -26,7 +27,7 @@ submitFmsQuestionare.post('/submitFmsUserQAcreateTaskStep1', async (req, res) =>
     console.log(req.body);
 
     infoLogger.log("info",
-      `User:${userName} | Company:${companyUrl} | API: submitFmsUserQAcreateTaskStep1 | Body:${JSON.stringify(req.body)}`
+      `User:${userName} | API: submitFmsUserQAcreateTaskStep1 | Body:${JSON.stringify(req.body)}`
     );
 
     // Generate fmsQAId
@@ -114,7 +115,7 @@ async function createInitialTask(fmsMaster, req, fmsQAId) {
       fmsName: req.body.fmsName,
       fmsTaskDoer: step.who.employees[0],
       fmsTaskStatus: "PENDING",
-      fmsProcessID: fmsMaster.fmsProcess,
+      // fmsProcessID: fmsMaster.fmsProcess,
       plannedDate: step.plannedDate,
       what: step.what,
       how: step.how,
@@ -165,7 +166,7 @@ async function createP2PTask(fmsMaster, step, fmsQAId) {
       fmsName: fmsMaster.fmsName,
       fmsTaskDoer: step.who.employees[0],
       fmsTaskStatus: "PENDING",
-      fmsProcessID: step.processId,
+      // fmsProcessID: step.processId,
       plannedDate: step.plannedDate,
       what: step.what,
       how: step.how,
