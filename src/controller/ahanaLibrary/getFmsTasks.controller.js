@@ -1,14 +1,14 @@
 const { MongoClient } = require("mongodb");
 const moment = require("moment-timezone");
 
-const { fetchUserDetails } = require("../../helpers/fetchuserDetails");
+const { fetchuserDetails } = require("../../helpers/fetchuserDetails");
 const { infoLogger, errorLogger } = require("../../middleware/logger");
 
 
 // GET ALL FMS TASKS FOR USER
 const getAllFmsTasksForUser = async (req, res) => {
 
-    let userDetails = await fetchUserDetails(req.headers.authorization);
+    let userDetails = await fetchuserDetails(req.headers.authorization);
 
     let userName = userDetails.userName;
     let userID = userDetails.userID;
@@ -51,7 +51,7 @@ const getAllFmsTasksForUser = async (req, res) => {
 // GET PENDING + OVERDUE TASKS
 const getPendingOrOverdueTasks = async (req, res) => {
 
-    let userDetails = await fetchUserDetails(req.headers.authorization);
+    let userDetails = await fetchuserDetails(req.headers.authorization);
 
     let userName = userDetails.userName;
     let userID = userDetails.userID;
@@ -120,7 +120,7 @@ const getPendingOrOverdueTasks = async (req, res) => {
 // GET ALL OVERDUE TASKS
 const getAllOverdueTasks = async (req, res) => {
 
-    let userDetails = await fetchUserDetails(req.headers.authorization);
+    let userDetails = await fetchuserDetails(req.headers.authorization);
 
     let userName = userDetails.userName;
     // let companyUrl = userDetails.companyUrl;

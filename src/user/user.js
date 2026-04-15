@@ -28,7 +28,7 @@ async function getUserDetails(token) {
   console.log("token", token);
 
   try {
-    const url = process.env.MAIN_BE_URL || "http://localhost:5000/api/auth/login";
+    const url = process.env.MAIN_BE_URL || "http://localhost:5000/api/auth/user-details";
 
     const response = await axios.get(url, {
       headers: {
@@ -47,4 +47,4 @@ async function getUserDetails(token) {
   }
 }
 
-module.exports = getUserDetails;
+module.exports = { getUserDetails };
