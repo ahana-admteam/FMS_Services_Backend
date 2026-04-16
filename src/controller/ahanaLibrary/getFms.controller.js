@@ -3,6 +3,7 @@ const getFms = express.Router();
 const axios = require('axios');
 const { fetchUserDetails } = require("../../../helpers/fetchuserDetails");
 const { infoLogger, errorLogger } = require("../../../middleware/logger");
+const { getRequestContext } = require('../../../utils/requestContext');
 
 // MODELS
 const FmsMaster = require("../../models/fmsMaster.model");
@@ -18,51 +19,46 @@ getFms.use((req, res, next) => {
 
 //find  Single FMS using FMS Name
 getFms.post('/findSingleFms', async (req, res) => {
-
-  const { getRequestContext } = require('../../../utils/requestContext');
-  const context = getRequestContext() || {};
-  const userDetails = context.userDetails || (await fetchUserDetails(req.headers.authorization));
-
-  let userName = userDetails.userName;
-  let userID = userDetails.userID;
-  let userEmail = userDetails.userEmail;
-
   try {
+    const token = req.headers.authorization;
 
-    infoLogger.log("info", `Username: ${userName} hit the api findSingleFms with body params: ${JSON.stringify(req.body)}`)
+    if (!token) {
+      return res.status(401).json({ message: "Authorization header missing" });
+    }
+
+    // ✅ Fetch actual user details from token
+    const userDetails = await fetchUserDetails(token);
+
+    console.log("userDetails", userDetails);
 
     const query = { fmsMasterId: req.body.fmsMasterId };
     const document = await FmsMaster.findOne(query);
 
-    infoLogger.log("info", `Username: ${userName} successfully fetch the single fms:${JSON.stringify(document)}`)
-
     res.json({
-      "message": document,
-      "status": 200
-    })
+      message: document,
+      status: 200
+    });
 
   } catch (error) {
-    errorLogger.log("error" , `Username:${userName} failed to fetch Single fms due to ${error.message}`);
+    console.error("Error in findSingleFms:", error);
     return res.status(500).json({ error: error.message });
   }
-})
+});
 
 
 //find ALL FMS 
 getFms.get('/findAllFms', async (req, res) => {
-
-  let userDetails = await fetchUserDetails(req.headers.authorization);
-  let userName = "TestUser";
-  let userID = "123";
-  let userEmail = "test@test.com";
-
   try {
+     const token = req.headers.authorization;
+    if (!token) {
+      return res.status(401).json({ message: "Authorization header missing" });
+    }
 
-    infoLogger.log("info", `Username: ${userName} hit the api findAllFms`)
+    const userDetails = await fetchUserDetails(token);
 
-    const documents = await FmsMaster.find({ fmsLive: true });
+    console.log("userDetails", userDetails);
 
-    infoLogger.log("info", `Username: ${userName} successfully fetch all fms:${JSON.stringify(documents)}`)
+    const documents = await FmsMaster.find();
 
     res.json({
       "message": [documents],
@@ -71,7 +67,6 @@ getFms.get('/findAllFms', async (req, res) => {
 
   }
   catch (error) {
-    errorLogger.log("error" , `Username:${userName} failed to fetch all fms due to ${error.message}`);
     return res.status(500).json({ error: error.message });
   }
 })
