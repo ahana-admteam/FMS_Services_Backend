@@ -15,6 +15,8 @@ async function fetchUserDetails(token) {
 
     return response.data;
 
+    console.log("Data received successfully:", token);
+
   } catch (error) {
     console.error(
       "Error fetching user details:",
