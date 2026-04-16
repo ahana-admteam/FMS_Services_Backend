@@ -32,7 +32,7 @@ const requestContextMiddleware = async (req, res, next) => {
   // If token present, try to fetch user details and store in context
   if (token) {
     try {
-      const userDetails = await fetchUserDetails(token);
+      const userDetails = await fetchuserDetails(token);
       contextData.userDetails = userDetails;
     } catch (err) {
       console.warn('requestContextMiddleware: failed to fetch user details:', err.message);
