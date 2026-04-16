@@ -1,13 +1,13 @@
 const axios = require("axios");
 require("dotenv").config();
 
-async function fetchuserDetails(token) {
+async function fetchUserDetails(token) {
   try {
     const url = process.env.MAIN_BE_URL;
 
     const response = await axios.get(url, {
       headers: {
-        authorization: `Bearer ${token}`, // ✅ correct
+        authorization: `${token}`, // ✅ correct
         "Content-Type": "application/json",
       },
       timeout: 10000,
@@ -24,4 +24,4 @@ async function fetchuserDetails(token) {
   }
 }
 
-module.exports = { fetchuserDetails };
+module.exports = { fetchUserDetails };

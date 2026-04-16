@@ -1,5 +1,5 @@
 const { setRequestContext } = require("../utils/requestContext");
-const { fetchuserDetails } = require("../helpers/fetchuserDetails");
+const { fetchUserDetails } = require("../helpers/fetchuserDetails");
 const jwt = require('jsonwebtoken');
 
 const requestContextMiddleware = async (req, res, next) => {
@@ -32,7 +32,7 @@ const requestContextMiddleware = async (req, res, next) => {
   // If token present, try to fetch user details and store in context
   if (token) {
     try {
-      const userDetails = await fetchuserDetails(token);
+      const userDetails = await fetchUserDetails(token);
       contextData.userDetails = userDetails;
     } catch (err) {
       console.warn('requestContextMiddleware: failed to fetch user details:', err.message);
