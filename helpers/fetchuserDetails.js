@@ -3,19 +3,21 @@ require("dotenv").config();
 
 async function fetchUserDetails(token) {
   try {
+    console.log("Token received in fetchUserDetails:", token); // ✅ log here
+
     const url = process.env.MAIN_BE_URL;
 
     const response = await axios.get(url, {
       headers: {
-        authorization: `${token}`, // ✅ correct
+        authorization: `${token}`,
         "Content-Type": "application/json",
       },
       timeout: 10000,
     });
 
-    return response.data;
+    console.log("Response received successfully"); // optional
 
-    console.log("Data received successfully:", token);
+    return response.data;
 
   } catch (error) {
     console.error(
