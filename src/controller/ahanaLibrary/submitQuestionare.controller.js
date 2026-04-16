@@ -95,16 +95,7 @@ async function createInitialTask(fmsMaster, req, fmsQAId) {
     const lastDoc = await FmsTasks.findOne().sort({ fmsTaskId: -1 });
     const fmsTaskId = lastDoc ? lastDoc.fmsTaskId + 1 : 1;
 
-    // const plannedTime = await calculateFmsPlannedCompletionTime(
-    //   companyUrl,
-    //   step.plannedDate.duration,
-    //   step.plannedDate.durationType,
-    //   step.plannedDate.working,
-    //   step.plannedDate.endTime,
-    //   step.plannedDate.type,
-    //   null,
-    //   CurrentIST()
-    // );
+    
     const plannedTime = new Date();
     const currentDate = moment().tz('Asia/Kolkata').format();
 
@@ -190,7 +181,6 @@ async function createTxSteps(fmsMaster, steps, fmsQAId, fmsQA) {
       const fmsTaskId = lastDoc ? lastDoc.fmsTaskId + 1 : 1;
 
       const plannedTime = await calculateFmsPlannedCompletionTime(
-        companyUrl,
         step.plannedDate.duration,
         step.plannedDate.durationType,
         step.plannedDate.working,
