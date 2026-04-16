@@ -18,11 +18,11 @@ console.log(context.token);
 transferFmsTask.post("/transferFmsTask", async (req, res) => {
   try {
     const userDetails = await fetchUserDetails(req.headers.authorization);
-    const { userName, userID, companyUrl, userEmail } = userDetails;
+    const { userName, userID, userEmail } = userDetails;
 
     infoLogger.log(
       "info",
-      `Username:${userName} from company:${companyUrl} hit the api transferFmsTask with body params: ${JSON.stringify(req.body)}`
+      `Username:${userName} hit the api transferFmsTask with body params: ${JSON.stringify(req.body)}`
     );
 
     const taskIdToTransfer = req.body.task?.fmsTaskId;
@@ -37,7 +37,6 @@ transferFmsTask.post("/transferFmsTask", async (req, res) => {
       return res.status(404).json({ error: 'Task not found' });
     }
 
-    // Use new collection fields: isTranferredTo, fmsTaskDoer.empId
     if (taskDocument.isTranferredTo === true) {
       return res.status(400).json({ error: 'Task has already been transferred' });
     }
@@ -46,8 +45,15 @@ transferFmsTask.post("/transferFmsTask", async (req, res) => {
       return res.status(400).json({ error: 'Missing fmsTransferredToUser' });
     }
 
-    const currentDoerId = taskDocument.fmsTaskDoer?.empId || taskDocument.fmsTaskDoer?.employeeId || taskDocument.fmsTaskDoer?.empId;
-    const targetDoerId = req.body.fmsTransferredToUser?.empId || req.body.fmsTransferredToUser?.employeeId || req.body.fmsTransferredToUser?.empId;
+    const currentDoerId =
+      taskDocument.fmsTaskDoer?.empId ||
+      taskDocument.fmsTaskDoer?.employeeId ||
+      taskDocument.fmsTaskDoer?.empId;
+
+    const targetDoerId =
+      req.body.fmsTransferredToUser?.empId ||
+      req.body.fmsTransferredToUser?.employeeId ||
+      req.body.fmsTransferredToUser?.empId;
 
     if (targetDoerId === currentDoerId) {
       return res.status(400).json({ error: 'Task cannot be transferred to the same doer' });
@@ -58,7 +64,6 @@ transferFmsTask.post("/transferFmsTask", async (req, res) => {
 
     const currentDate = moment().tz('Asia/Kolkata').format();
 
-    // Normalize incoming transferred-to user to new schema (empId/empName)
     const toUser = req.body.fmsTransferredToUser || {};
     const normalizedDoer = {
       empId: toUser.empId || toUser.employeeId || toUser.empId,
@@ -85,7 +90,6 @@ transferFmsTask.post("/transferFmsTask", async (req, res) => {
       fmsTaskPlannedCompletionTime: req.body.task.fmsTaskPlannedCompletionTime,
       formStepsAnswers: null,
       fmsTaskQualityDetails: null,
-      // New schema uses isTransferredFrom / isTranferredTo booleans and transferredFromTaskId/transferredToTaskId
       isTransferredFrom: true,
       isTranferredTo: false,
       transferredFromTaskId: taskDocument.fmsTaskId,
@@ -95,15 +99,18 @@ transferFmsTask.post("/transferFmsTask", async (req, res) => {
 
     await FmsTasks.create(newTask);
 
-    // Update original task to indicate it was transferred to the new task id
     await FmsTasks.updateOne(
       { fmsTaskId: taskDocument.fmsTaskId },
       { $set: { isTranferredTo: true, transferredToTaskId: newFmsTaskId } }
     );
 
-    infoLogger.log("info", `Username:${userName} from company:${companyUrl} transferred task ${taskDocument.fmsTaskId} to ${JSON.stringify(req.body.fmsTransferredToUser)}`);
+    infoLogger.log(
+      "info",
+      `Username:${userName} transferred task ${taskDocument.fmsTaskId} to ${JSON.stringify(req.body.fmsTransferredToUser)}`
+    );
 
     return res.json({ message: "Task transferred successfully", status: 200 });
+
   } catch (error) {
     console.error("Error in transferFmsTask:", error);
     errorLogger.log("error", `Error transferring task: ${error.message}`);
