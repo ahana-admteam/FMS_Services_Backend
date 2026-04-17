@@ -12,6 +12,7 @@
     "fmsName": "Ahana Library",
     "fmsDescription": "Ahana Library",
     "requestForm": "Ahana Library Request Form",
+    "department": "Admin",
 
     "fmsAccess": [
       { "empId": "AS01989", "empName": "siddesh" },
