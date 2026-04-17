@@ -18,6 +18,7 @@ const getFmsTasksRoutes = require("../src/routes/ahanaLibrary/getFmsTasks.routes
 const getfilterfmsDeptRoutes = require("../src/routes/ahanaLibrary/getfilterfmsDept.routes");
 const getfilterAdminRoutes = require("../src/routes/ahanaLibrary/getfilterAdmin.routes");
 const getfilterDoerRoutes = require("../src/routes/ahanaLibrary/getfilterDoer.routes");
+const permissionRoutes = require("../src/routes/userManagement/permissionRoute");
 // Import Utils
 const { getRequestContext } = require('../utils/requestContext');
 const getUserDetails = require('./user/user');
@@ -42,6 +43,7 @@ app.use("/api/getFmsTasks", getFmsTasksRoutes);
 app.use("/api/getfilterfmsDept", getfilterfmsDeptRoutes);
 app.use("/api/getfilterAdmin", getfilterAdminRoutes);
 app.use("/api/getfilterDoer", getfilterDoerRoutes);
+app.use("/api/permission", permissionRoutes);
 
 
 // Health Check API

@@ -91,18 +91,10 @@
     "fmsSteps": [
       {
         "step": 1,
-        "who": {
-          "department": [
-            {
-              "deptId": 2,
-              "deptName": "HR",
-              "employees": [
+        "who": [
                 { "empId": "AS01989", "empName": "siddesh" },
                 { "empId": "AS01990", "empName": "Veerana" }
-              ]
-            }
-          ]
-        },
+              ],
         "what": { "what": "Request for book", "id": 1 },
         "when": "",
         "how": {
