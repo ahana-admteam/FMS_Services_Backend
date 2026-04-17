@@ -10,6 +10,7 @@
   },
   "fmsMasterId": 2,
   "fmsName": "Ahana Library",
+  "department": "Admin",
   "fmsQA": [
     {
       "id": "41c75229-180c-42e7-9d05-49e82eb98bda",

@@ -21,7 +21,7 @@ getfilterAdmin.get("/getfilterviewFms", async (req, res) => {
     // Fetch user details
     const userDetails = await fetchUserDetails(token);
 
-    let { department, requestForm } = req.query;
+    let { department, requestForm, fmsName } = req.query;
 
     // Build dynamic query
     const query = {};
@@ -34,12 +34,21 @@ getfilterAdmin.get("/getfilterviewFms", async (req, res) => {
       query.requestForm = requestForm;
     }
 
+    if(fmsName) {
+      query.fmsName = fmsName;
+    }
+
     // Fetch data based on filters
     const documents = await FmsMaster.find(query);
+    const fmsqaAnswers = await FmsQA.find(query);
+    const fmsTasks = await FmsTasks.find(query);
 
     res.json({
-      message: documents,
-      status: 200
+      message: {
+        fmsMaster: documents,
+        fmsQA: fmsqaAnswers,
+        fmsTasks: fmsTasks
+      },
     });
 
   } catch (error) {

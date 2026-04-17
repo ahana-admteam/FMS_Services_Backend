@@ -14,16 +14,31 @@ const FmsQA = require("../../models/fmsQA.model");
 
 //find ALL FMS Tasks FOR A USER 
 getFmsTasks.get('/findAllFmsTasksForUser', async (req, res) => {
- try {
+  try {
     const token = req.headers.authorization;
 
     if (!token) {
       return res.status(401).json({ message: "Authorization header missing" });
     }
 
-    // ✅ Fetch actual user details from token
     const userDetails = await fetchUserDetails(token);
-    const documents = await FmsTasks.find({ "fmsTaskDoer.empId": userDetails.result.emp_id });
+
+    let { fmsTaskStatus, fmsTaskCompletedStatus } = req.query;
+
+    const query = {
+      "fmsTaskDoer.empId": userDetails.result.emp_id
+    };
+
+    // Handle multiple values (comma separated)
+    if (fmsTaskStatus) {
+      query.fmsTaskStatus = { $in: fmsTaskStatus.split(",") };
+    }
+
+    if (fmsTaskCompletedStatus) {
+      query.fmsTaskCompletedStatus = { $in: fmsTaskCompletedStatus.split(",") };
+    }
+
+    const documents = await FmsTasks.find(query);
 
     res.json({
       message: documents,
@@ -31,7 +46,7 @@ getFmsTasks.get('/findAllFmsTasksForUser', async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Error in findSingleFms:", error);
+    console.error("Error in findAllFmsTasksForUser:", error);
     return res.status(500).json({ error: error.message });
   }
 });
