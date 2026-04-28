@@ -1,29 +1,33 @@
-const axios = require("axios");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 
 async function fetchUserDetails(token) {
   try {
-    console.log("Token received in fetchUserDetails:", token); // ✅ log here
+    console.log("Token received in fetchUserDetails:", token);
 
-    const url = process.env.MAIN_BE_URL;
+    // ✅ Remove axios entirely — decode JWT locally
+    const cleanToken = token.startsWith("Bearer ")
+      ? token.slice(7)
+      : token;
 
-    const response = await axios.get(url, {
-      headers: {
-        authorization: `${token}`,
-        "Content-Type": "application/json",
-      },
-      timeout: 10000,
-    });
+    const decoded = jwt.decode(cleanToken);
 
-    console.log("Response received successfully"); // optional
+    if (!decoded) {
+      throw new Error("Invalid token — could not decode");
+    }
 
-    return response.data;
+    console.log("Locally decoded token:", decoded);
+
+    return {
+      result: {
+        emp_id: decoded.emp_id,
+        email_id: decoded.email_id,
+        user_id: decoded.sub
+      }
+    };
 
   } catch (error) {
-    console.error(
-      "Error fetching user details:",
-      error?.response?.data || error.message
-    );
+    console.error("Error in fetchUserDetails:", error.message);
     throw error;
   }
 }

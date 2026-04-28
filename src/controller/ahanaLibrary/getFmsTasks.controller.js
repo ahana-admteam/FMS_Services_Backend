@@ -4,12 +4,14 @@ let MongoClient = require('mongodb').MongoClient;
 const axios = require('axios');
 const moment = require('moment-timezone');
 const { fetchUserDetails } = require("../../../helpers/fetchuserDetails");
-const { infoLogger, errorLogger } = require("../../../middleware/logger");
+// const { infoLogger, errorLogger } = require("../../../middleware/logger");
 
 // MODELS
 const FmsTasks = require("../../models/fmsTasks.model");
 const FmsMaster = require("../../models/fmsMaster.model");
 const FmsQA = require("../../models/fmsQA.model");
+
+
 
 
 //find ALL FMS Tasks FOR A USER 
@@ -22,11 +24,10 @@ getFmsTasks.get('/findAllFmsTasksForUser', async (req, res) => {
     }
 
     const userDetails = await fetchUserDetails(token);
-
     let { fmsTaskStatus, fmsTaskCompletedStatus } = req.query;
 
     const query = {
-      "fmsTaskDoer.empId": userDetails.result.emp_id
+      "fmsTaskDoers.empId": userDetails.result.emp_id
     };
 
     // Handle multiple values (comma separated)
@@ -51,6 +52,120 @@ getFmsTasks.get('/findAllFmsTasksForUser', async (req, res) => {
   }
 });
 
+
+// getFmsTasks.get('/findAllFmsTasksForUser', async (req, res) => {
+//   try {
+//     const token = req.headers.authorization;
+
+//     if (!token) {
+//       return res.status(401).json({ message: "Authorization header missing" });
+//     }
+
+//     const userDetails = await fetchUserDetails(token);
+//     const UserempId = userDetails.result.emp_id;
+
+//     let { fmsTaskStatus, fmsTaskCompletedStatus } = req.query;
+
+//     // ✅ Query filters (status filters from request)
+//     const matchStage = {
+//       "fmsTaskDoer.empId": UserempId  // Always filter by logged-in user's doer ID
+//     };
+
+//     if (fmsTaskStatus) {
+//       matchStage.fmsTaskStatus = { $in: fmsTaskStatus.split(",") };
+//     }
+
+//     if (fmsTaskCompletedStatus) {
+//       matchStage.fmsTaskCompletedStatus = { $in: fmsTaskCompletedStatus.split(",") };
+//     }
+
+//     const documents = await FmsTasks.aggregate([
+
+//       // ✅ Step 1: Match tasks by doer + optional status filters
+//       {
+//         $match: matchStage
+//       },
+
+//       // 🔗 Step 2: Join FmsQA collection
+//       {
+//         $lookup: {
+//           from: FmsQA.collection.name,
+//           localField: "fmsQAId",
+//           foreignField: "fmsQAId",
+//           as: "qaData"
+//         }
+//       },
+
+//       // Step 3: Unwind QA data
+//       {
+//         $unwind: {
+//           path: "$qaData",
+//           preserveNullAndEmpty: false
+//         }
+//       },
+
+//       // 🎯 Step 4: Extract Requester Employee Id from QA answers
+//       {
+//         $addFields: {
+//           requesterEmpId: {
+//             $toLower: {
+//               $trim: {
+//                 input: {
+//                   $ifNull: [
+//                     {
+//                       $getField: {
+//                         field: "answer",
+//                         input: {
+//                           $arrayElemAt: [
+//                             {
+//                               $filter: {
+//                                 input: "$qaData.fmsQA",
+//                                 as: "q",
+//                                 cond: {
+//                                   $eq: [
+//                                     { $trim: { input: "$$q.question" } },
+//                                     "Requester Employee Id"
+//                                   ]
+//                                 }
+//                               }
+//                             },
+//                             0
+//                           ]
+//                         }
+//                       }
+//                     },
+//                     ""
+//                   ]
+//                 }
+//               }
+//             }
+//           }
+//         }
+//       },
+
+//       // 🧹 Step 5: Remove temp field
+//       {
+//         $project: {
+//           requesterEmpId: 0
+//         }
+//       }
+
+//     ]);
+
+//     res.json({
+//       message: documents,
+//       status: 200
+//     });
+
+//   } catch (error) {
+//     console.error("Error:", error);
+//     return res.status(500).json({ error: error.message });
+//   }
+// });
+
+
+module.exports = getFmsTasks;
+
 //ALL PENDING tasks
 getFmsTasks.get('/finduserFmsTasks', async (req, res) => {
     try {
@@ -65,7 +180,7 @@ getFmsTasks.get('/finduserFmsTasks', async (req, res) => {
             const userDetails = await fetchUserDetails(token);
 
         const documents = await FmsTasks.find(
-            {"fmsTaskDoer.empId": userDetails.result.emp_id, fmsTaskStatus: { $in: ["PENDING", "COMPLETED"] }}
+            {"fmsTaskDoers.empId": userDetails.result.emp_id, fmsTaskStatus: { $in: ["PENDING", "COMPLETED"] }}
         );
 
         res.json({
@@ -80,5 +195,341 @@ getFmsTasks.get('/finduserFmsTasks', async (req, res) => {
     }
 })
 
+// GET COMPLETED + CURRENT STEP BY fmsQAId
+getFmsTasks.get('/findFmsStepsById/:fmsQAId', async (req, res) => {
+  try {
 
+    const { fmsQAId } = req.params;
+
+    // Completed Steps
+  const completedSteps = await FmsTasks.find({
+  fmsQAId: Number(fmsQAId),
+  fmsTaskStatus: "COMPLETED"
+}).sort({ stepId: 1 });
+
+
+    // Current Step
+    const currentStep = await FmsTasks.findOne({
+      fmsQAId: Number(fmsQAId),
+      fmsTaskStatus: { $in: ["PENDING", "INPROGRESS"] }
+    }).sort({ stepId: 1 });
+
+
+    res.json({
+      completedSteps,
+      currentStep,
+      status: 200
+    });
+
+  } catch (error) {
+    console.error("Error in findFmsStepsById:", error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// ASSIGN TASK (START BUTTON)
+getFmsTasks.post('/assignFmsTask', async (req, res) => {
+  try {
+
+    const token = req.headers.authorization;
+
+    if (!token) {
+      return res.status(401).json({ 
+        message: "Authorization header missing" 
+      });
+    }
+
+    // Get logged-in user
+    const userDetails = await fetchUserDetails(token);
+
+    const empId = userDetails.result.emp_id;
+    const empName = userDetails.result.emp_name;
+
+    const { fmsTaskId } = req.body;
+
+    if (!fmsTaskId) {
+      return res.status(400).json({
+        message: "fmsTaskId is required"
+      });
+    }
+
+    // Check task exists
+    const task = await FmsTasks.findOne({
+      fmsTaskId: Number(fmsTaskId)
+    });
+
+    if (!task) {
+      return res.status(404).json({
+        message: "Task not found"
+      });
+    }
+
+    // Check if already assigned
+    const alreadyAssigned = task.fmsTaskDoers?.some(
+      (emp) => emp.empId === empId
+    );
+
+    let updateQuery = {
+      $set: {
+        fmsTaskStatus: "ASSIGNED",
+        assignedTo: {
+          empId,
+          empName
+        },
+        fmsTaskStartTime: new Date()
+      }
+    };
+
+    // Push only if not already present
+    if (!alreadyAssigned) {
+      updateQuery.$push = {
+        fmsTaskDoers: {
+          empId,
+          empName,
+          assignedAt: new Date()
+        }
+      };
+    }
+
+    // Update task
+    const updatedTask = await FmsTasks.findOneAndUpdate(
+      { fmsTaskId: Number(fmsTaskId) },
+      updateQuery,
+      { new: true }
+    );
+
+    res.json({
+      message: "Task assigned successfully",
+      assignedTo: {
+        empId,
+        empName
+      },
+      data: updatedTask,
+      status: 200
+    });
+
+  } catch (error) {
+    console.error("Error in assignFmsTask:", error);
+    return res.status(500).json({ 
+      error: error.message 
+    });
+  }
+});
+
+// DELEGATE TASK
+getFmsTasks.post('/delegateFmsTask', async (req, res) => {
+  try {
+    const token = req.headers.authorization;
+
+    if (!token) {
+      return res.status(401).json({
+        message: "Authorization header missing"
+      });
+    }
+
+    const userDetails = await fetchUserDetails(token);
+
+    const loggedEmpId = userDetails.result.emp_id;
+    const loggedEmpName = userDetails.result.emp_name;
+
+    const { fmsTaskId, delegateEmpId, delegateEmpName, remarks } = req.body;
+
+    if (!fmsTaskId || !delegateEmpId || !delegateEmpName) {
+      return res.status(400).json({
+        message: "fmsTaskId, delegateEmpId, delegateEmpName are required"
+      });
+    }
+
+    const task = await FmsTasks.findOne({
+      fmsTaskId: Number(fmsTaskId)
+    });
+
+    if (!task) {
+      return res.status(404).json({
+        message: "Task not found"
+      });
+    }
+
+    //  Only ASSIGNED tasks can be delegated
+    if (task.fmsTaskStatus !== "ASSIGNED") {
+      return res.status(400).json({
+        message: "Only ASSIGNED tasks can be delegated"
+      });
+    }
+
+    // Prevent self-delegation
+    if (task.assignedTo?.empId === delegateEmpId) {
+      return res.status(400).json({
+        message: "Task already assigned to this employee"
+      });
+    }
+
+    const updatedTask = await FmsTasks.findOneAndUpdate(
+      { fmsTaskId: Number(fmsTaskId) },
+      {
+        $set: {
+          //  New owner
+          assignedTo: {
+            empId: delegateEmpId,
+            empName: delegateEmpName
+          },
+
+          //  Delegation block
+          delegation: {
+            delegatedBy: {
+              empId: loggedEmpId,
+              empName: loggedEmpName
+            },
+            delegatedTo: {
+              empId: delegateEmpId,
+              empName: delegateEmpName
+            },
+            remarks: remarks || "",
+            status: "PENDING",
+            delegatedAt: new Date()
+          }
+        }
+      },
+      { new: true }
+    );
+
+    res.json({
+      message: "Task delegated successfully",
+      assignedTo: updatedTask.assignedTo,
+      delegation: updatedTask.delegation,
+      status: 200
+    });
+
+  } catch (error) {
+    console.error("Error in delegateFmsTask:", error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// ACCEPT DELEGATION
+getFmsTasks.post('/acceptDelegation', async (req, res) => {
+  try {
+    const token = req.headers.authorization;
+
+    if (!token) {
+      return res.status(401).json({
+        message: "Authorization header missing"
+      });
+    }
+
+    const userDetails = await fetchUserDetails(token);
+    const loggedEmpId = userDetails.result.emp_id;
+
+    const { fmsTaskId } = req.body;
+
+    if (!fmsTaskId) {
+      return res.status(400).json({
+        message: "fmsTaskId is required"
+      });
+    }
+
+    const task = await FmsTasks.findOne({
+      fmsTaskId: Number(fmsTaskId)
+    });
+
+    if (!task || !task.delegation) {
+      return res.status(404).json({
+        message: "Delegation not found"
+      });
+    }
+
+    //  Only delegated user can accept
+    if (task.delegation.delegatedTo.empId !== loggedEmpId) {
+      return res.status(403).json({
+        message: "Not authorized to accept this delegation"
+      });
+    }
+
+    const updatedTask = await FmsTasks.findOneAndUpdate(
+      { fmsTaskId: Number(fmsTaskId) },
+      {
+        $set: {
+          "delegation.status": "ACCEPTED"
+        }
+      },
+      { new: true }
+    );
+
+    res.json({
+      message: "Delegation accepted",
+      data: updatedTask,
+      status: 200
+    });
+
+  } catch (error) {
+    console.error("Error in acceptDelegation:", error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// REJECT DELEGATION
+getFmsTasks.post('/rejectDelegation', async (req, res) => {
+  try {
+    const token = req.headers.authorization;
+
+    if (!token) {
+      return res.status(401).json({
+        message: "Authorization header missing"
+      });
+    }
+
+    const userDetails = await fetchUserDetails(token);
+
+    const loggedEmpId = userDetails.result.emp_id;
+
+    const { fmsTaskId, remarks } = req.body;
+
+    if (!fmsTaskId) {
+      return res.status(400).json({
+        message: "fmsTaskId is required"
+      });
+    }
+
+    const task = await FmsTasks.findOne({
+      fmsTaskId: Number(fmsTaskId)
+    });
+
+    if (!task || !task.delegation) {
+      return res.status(404).json({
+        message: "Delegation not found"
+      });
+    }
+
+    // Only delegated user can reject
+    if (task.delegation.delegatedTo.empId !== loggedEmpId) {
+      return res.status(403).json({
+        message: "Not authorized to reject this delegation"
+      });
+    }
+
+    const updatedTask = await FmsTasks.findOneAndUpdate(
+      { fmsTaskId: Number(fmsTaskId) },
+      {
+        $set: {
+          // revert back to original owner
+          assignedTo: task.delegation.delegatedBy,
+
+          "delegation.status": "REJECTED",
+          "delegation.rejectionRemarks": remarks || ""
+        }
+      },
+      { new: true }
+    );
+
+    res.json({
+      message: "Delegation rejected",
+      data: updatedTask,
+      status: 200
+    });
+
+  } catch (error) {
+    console.error("Error in rejectDelegation:", error);
+    return res.status(500).json({ error: error.message });
+  }
+});
 module.exports = getFmsTasks;

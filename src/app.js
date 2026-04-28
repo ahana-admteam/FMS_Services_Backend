@@ -18,6 +18,8 @@ const getFmsTasksRoutes = require("../src/routes/ahanaLibrary/getFmsTasks.routes
 const getfilterfmsDeptRoutes = require("../src/routes/ahanaLibrary/getfilterfmsDept.routes");
 const getfilterAdminRoutes = require("../src/routes/ahanaLibrary/getfilterAdmin.routes");
 const getfilterDoerRoutes = require("../src/routes/ahanaLibrary/getfilterDoer.routes");
+const permissionRoutes = require("../src/routes/userManagement/permissionRoute");
+const submitQuestionareRoutes = require("../src/routes/ahanaLibrary/submitQuestionare.routes");
 // Import Utils
 const { getRequestContext } = require('../utils/requestContext');
 const getUserDetails = require('./user/user');
@@ -35,13 +37,15 @@ app.use(requestContextMiddleware);
 // Routes
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use("/api/questionare", questionareRoutes);
-app.use("/api/updatefmstasks", updateFmsTaskRoutes);
+app.use("/api/updateFmsTasks", updateFmsTaskRoutes);
 app.use("/api/getfms", getFmsRoutes);
 app.use("/api/getfmsmaster", getFmsMasterDataRoutes);
 app.use("/api/getFmsTasks", getFmsTasksRoutes);
 app.use("/api/getfilterfmsDept", getfilterfmsDeptRoutes);
 app.use("/api/getfilterAdmin", getfilterAdminRoutes);
 app.use("/api/getfilterDoer", getfilterDoerRoutes);
+app.use("/api/permission", permissionRoutes);
+app.use("/api/submitQuestionare", submitQuestionareRoutes);
 
 
 // Health Check API
