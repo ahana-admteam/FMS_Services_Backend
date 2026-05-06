@@ -1,6 +1,8 @@
 const express = require('express');
 const swaggerUi = require("swagger-ui-express");
 const app = express();
+const runReminderJob = require("../jobs/reminderJob");
+
 const cors = require("cors");
 
 // Import Middlewares
@@ -19,6 +21,7 @@ const getfilterfmsDeptRoutes = require("../src/routes/ahanaLibrary/getfilterfmsD
 const getfilterAdminRoutes = require("../src/routes/ahanaLibrary/getfilterAdmin.routes");
 const getfilterDoerRoutes = require("../src/routes/ahanaLibrary/getfilterDoer.routes");
 const permissionRoutes = require("../src/routes/userManagement/permissionRoute");
+const submitQuestionareRoutes = require("../src/routes/ahanaLibrary/submitQuestionare.routes");
 // Import Utils
 const { getRequestContext } = require('../utils/requestContext');
 const getUserDetails = require('./user/user');
@@ -36,7 +39,7 @@ app.use(requestContextMiddleware);
 // Routes
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use("/api/questionare", questionareRoutes);
-app.use("/api/updatefmstasks", updateFmsTaskRoutes);
+app.use("/api/updateFmsTasks", updateFmsTaskRoutes);
 app.use("/api/getfms", getFmsRoutes);
 app.use("/api/getfmsmaster", getFmsMasterDataRoutes);
 app.use("/api/getFmsTasks", getFmsTasksRoutes);
@@ -44,6 +47,7 @@ app.use("/api/getfilterfmsDept", getfilterfmsDeptRoutes);
 app.use("/api/getfilterAdmin", getfilterAdminRoutes);
 app.use("/api/getfilterDoer", getfilterDoerRoutes);
 app.use("/api/permission", permissionRoutes);
+app.use("/api/submitQuestionare", submitQuestionareRoutes);
 
 
 // Health Check API
@@ -68,10 +72,22 @@ app.post("/test", (req, res) => {
   });
 });
 
-
-// ==========================
-// Get User Details API (NEW)
-// ==========================
+// test email trigger
+app.get("/api/test-email", async (req, res) => {
+  try {
+    const transporter = require("../config/mailer");
+    await transporter.sendMail({
+      from: `"Ahana Library" <${process.env.EMAIL_ID}>`,
+      to: "veerannab97@gmail.com",
+      subject: "Ahana Library SMTP Test",
+      html: "<p>SMTP is working!</p>",
+    });
+    res.json({ success: true, message: "Test email sent!" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+// Get User Details API
 app.post("/api/getUserDetails", async (req, res) => {
   try {
 
@@ -107,5 +123,5 @@ app.post("/api/getUserDetails", async (req, res) => {
   }
 });
 
-
+runReminderJob();
 module.exports = app;

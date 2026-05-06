@@ -57,5 +57,30 @@ getfilterAdmin.get("/getfilterviewFms", async (req, res) => {
   }
 });
 
+getfilterAdmin.get("/getviewdeptlist", async (req, res) => {
+  try {
+    const token = req.headers.authorization;
+
+    if (!token) {
+      return res.status(401).json({ message: "Authorization header missing" });
+    }
+
+    const userDetails = await fetchUserDetails(token);
+
+    // ✅ Fetch only distinct department values from FmsMaster
+    const departments = await FmsMaster.distinct("department");
+
+    res.json({
+      message: {
+        departments, // ✅ e.g. ["Admin", "HR", "Finance"]
+      },
+    });
+
+  } catch (error) {
+    console.error("Error in getviewdeptlist:", error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 
 module.exports = getfilterAdmin;
