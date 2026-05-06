@@ -10,31 +10,28 @@ const send = (mailOptions) => transporter.sendMail({
   ...mailOptions,
 });
 
-// ─── STEP 2 : Issue Book ──────────────────────────────────────────────────────
-// Status: "Issued" → email to requestor + cc library
-exports.sendBookIssued = async ({ requestorEmail, bookName }) => {
+// ─── STEP 2 : Book Available / Not Available ──────────────────────────────────
+exports.sendBookAvailable = async ({ requestorEmail, responsiblePerson }) => {
   await send({
     to: requestorEmail,
-    cc: LIBRARY_EMAIL,
-    subject: "Ahana Library – Book Issued",
+    subject: "Ahana Library – Book Available",
     html: `
       <p>Hi,</p>
-      <p>We have issued the below book to you. Please <b>reply all</b> to this email to acknowledge receipt.</p>
-      <p><b>Book Name:</b> ${bookName}</p>
+      <p>The requested book is <b>available</b>. Please contact the Admin team to collect it within a day.</p>
+      <p><b>Responsible Person:</b> ${responsiblePerson}</p>
       <p>Thank You!</p>
       <p><em>Note: This is a system generated email. Please do not reply directly.</em></p>
     `,
   });
 };
 
-// Status: "Not Issued" → email to requestor with reason
-exports.sendBookNotIssued = async ({ requestorEmail, reason, responsiblePerson }) => {
+exports.sendBookNotAvailable = async ({ requestorEmail, reason, responsiblePerson }) => {
   await send({
     to: requestorEmail,
-    subject: "Ahana Library – Book Not Issued",
+    subject: "Ahana Library – Book Not Available",
     html: `
       <p>Hi,</p>
-      <p>Unfortunately, the requested book could not be issued at this time.</p>
+      <p>Unfortunately, the requested book is currently <b>not available</b>.</p>
       <p><b>Reason:</b> ${reason || "Please contact Admin team for details."}</p>
       <p><b>Responsible Person:</b> ${responsiblePerson}</p>
       <p>Thank You!</p>
@@ -43,7 +40,38 @@ exports.sendBookNotIssued = async ({ requestorEmail, reason, responsiblePerson }
   });
 };
 
-// ─── STEP 3 : Acknowledgement received from requestor ─────────────────────────
+// ─── STEP 3 : Issued / Not Issued ────────────────────────────────────────────
+exports.sendBookIssued = async ({ requestorEmail, bookName }) => {
+  await send({
+    to: requestorEmail,
+    cc: LIBRARY_EMAIL,
+    subject: "Ahana Library – Book Issued",
+    html: `
+      <p>Hi,</p>
+      <p>We have issued the below book to you. Please <b>reply all</b> to acknowledge receipt.</p>
+      <p><b>Book Name:</b> ${bookName}</p>
+      <p>Thank You!</p>
+      <p><em>Note: This is a system generated email. Please do not reply directly.</em></p>
+    `,
+  });
+};
+
+exports.sendBookNotIssued = async ({ requestorEmail, reason, responsiblePerson }) => {
+  await send({
+    to: requestorEmail,
+    subject: "Ahana Library – Book Not Issued",
+    html: `
+      <p>Hi,</p>
+      <p>The book could not be issued at this time.</p>
+      <p><b>Reason:</b> ${reason || "Please contact Admin team for details."}</p>
+      <p><b>Responsible Person:</b> ${responsiblePerson}</p>
+      <p>Thank You!</p>
+      <p><em>Note: This is a system generated email. Please do not reply directly.</em></p>
+    `,
+  });
+};
+
+// ─── STEP 4 : Acknowledgement received from requestor ─────────────────────────
 // Admin updates step 3 after receiving mail from requestor
 exports.sendAcknowledgementConfirmed = async ({ requestorEmail, bookName, responsiblePerson }) => {
   await send({
@@ -60,7 +88,7 @@ exports.sendAcknowledgementConfirmed = async ({ requestorEmail, bookName, respon
   });
 };
 
-// ─── STEP 4 : Due date reminder sent ─────────────────────────────────────────
+// ─── STEP 5 : Due date reminder sent ─────────────────────────────────────────
 // Admin marks step 4 done after auto mail generation
 exports.sendDueDateReminderManual = async ({ requestorEmail, dueDate }) => {
   await send({
@@ -78,7 +106,7 @@ exports.sendDueDateReminderManual = async ({ requestorEmail, dueDate }) => {
   });
 };
 
-// ─── STEP 5 : Book collected back ────────────────────────────────────────────
+// ─── STEP 6 : Book collected back ────────────────────────────────────────────
 exports.sendBookCollected = async ({ requestorEmail, bookName, responsiblePerson }) => {
   await send({
     to: requestorEmail,
@@ -94,7 +122,7 @@ exports.sendBookCollected = async ({ requestorEmail, bookName, responsiblePerson
   });
 };
 
-// ─── STEP 6 : Feedback request ───────────────────────────────────────────────
+// ─── STEP 7 : Feedback request ───────────────────────────────────────────────
 exports.sendFeedbackRequest = async ({ requestorEmail, bookName, responsiblePerson, actualReturnDate }) => {
   await send({
     to: requestorEmail,

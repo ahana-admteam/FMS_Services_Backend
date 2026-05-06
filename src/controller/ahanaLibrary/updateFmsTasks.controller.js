@@ -4,6 +4,7 @@ const moment = require("moment");
 const { CurrentIST } = require("../../../helpers/convertGMTtoIST");
 const { calculateFmsPlannedCompletionTime } = require("../../../helpers/calculateFmsPlannedCompleationTime");
 const { fetchUserDetails } = require("../../../helpers/fetchuserDetails");
+const emailService = require("../../../helpers/emailService");
 
 // MODELS
 const FmsQA = require("../../models/fmsQA.model");
@@ -93,6 +94,99 @@ if (
 
 console.log("selectedStatus",selectedStatus);
 
+// ─── Email Trigger Block 
+try {
+  const stepNum = currentStep.step;
+
+  // Pull requestor info from fmsQAdocument
+  console.log("fmsQAdocument",fmsQAdocument);
+  
+  // Adjust field names to match your actual fmsQA schema
+ // Requestor email — match by question text containing "mail" or "email"
+const requestorEmail =
+  fmsQAdocument.fmsQACreatedBy?.email ||
+  fmsQAdocument.fmsQA?.find(q =>
+    q.question?.toLowerCase().includes("mail") ||
+    q.question?.toLowerCase().includes("email")
+  )?.answer ||
+  null;
+
+// Requestor name
+const requestorName =
+  fmsQAdocument.fmsQA?.find(q =>
+    q.question?.toLowerCase().includes("name")
+  )?.answer || "Team";
+
+// Book name — match by question text containing "book"
+const bookName =
+  fmsQAdocument.fmsQA?.find(q =>
+    q.question?.toLowerCase().includes("book")
+  )?.answer || "Requested Book";const responsiblePerson = completedBy?.empName || email_id;
+  const notIssuedReason   = formStepsAnswers?.reason || null;
+
+  console.log("EMAIL BLOCK HIT");
+  console.log("stepNum:", stepNum);
+  console.log("selectedStatus:", selectedStatus);
+  console.log("requestorEmail:", requestorEmail);
+  console.log("bookName:", bookName);
+  console.log("responsiblePerson:", responsiblePerson);
+
+ if (stepNum === 2) {
+  if (selectedStatus.statusName === "Available") {
+    await emailService.sendBookAvailable({ requestorEmail, responsiblePerson });
+    console.log(" Step 2 - Available email sent");
+
+  } else if (selectedStatus.statusName === "Not Available") {
+    await emailService.sendBookNotAvailable({ requestorEmail, reason: notIssuedReason, responsiblePerson });
+    console.log(" Step 2 - Not Available email sent");
+  }
+}
+
+if (stepNum === 3) {
+  if (selectedStatus.statusName === "Issued") {
+    await emailService.sendBookIssued({ requestorEmail, bookName });
+    console.log(" Step 3 - Issued email sent");
+
+  } else if (selectedStatus.statusName === "Not Issued") {
+    await emailService.sendBookNotIssued({ requestorEmail, reason: notIssuedReason, responsiblePerson });
+    console.log(" Step 3 - Not Issued email sent");
+  }
+}
+
+if (stepNum === 4) {
+  // Admin updates after receiving acknowledgement mail from requestor
+  await emailService.sendAcknowledgementConfirmed({ requestorEmail, bookName, responsiblePerson });
+  console.log(" Step 4 - Acknowledgement confirmed email sent");
+}
+
+if (stepNum === 5) {
+  // Admin sends due date reminder
+  await emailService.sendDueDateReminderManual({ requestorEmail, dueDate: fmsQAdocument?.dueDate || null });
+  console.log(" Step 5 - Due date reminder email sent");
+}
+
+if (stepNum === 6) {
+  // Admin collects book back
+  await emailService.sendBookCollected({ requestorEmail, bookName, responsiblePerson });
+  console.log(" Step 6 - Book collected email sent");
+}
+
+if (stepNum === 7) {
+  // Admin sends feedback link
+  const step6Task = await FmsTasks.findOne({ fmsMasterId, fmsQAId, stepId: 6 });
+  const actualReturnDate = step6Task?.fmsTaskCompletedTime || new Date();
+  await emailService.sendFeedbackRequest({ requestorEmail, bookName, responsiblePerson, actualReturnDate });
+  console.log("Step 7 - Feedback request email sent");
+}
+
+// Steps 8 & 9 — no email triggers
+
+} catch (emailErr) {
+  //  Email failure should NOT block the API response
+  console.error(" Email trigger failed (non-blocking):", emailErr.message);
+}
+//  End Email Block
+
 // STOP FLOW IF NEGATIVE RESPONSE
 
 const negativeStatuses = ["NOT AVAILABLE", "NOT ISSUED", "REJECTED"];
@@ -116,52 +210,7 @@ const isNegative = negativeStatuses.includes(statusName);
   });
 }
 
-// ─── Email Trigger Block 
-try {
-  const stepNum = currentStep.step;
 
-  // Pull requestor info from fmsQAdocument
-  // Adjust field names to match your actual fmsQA schema
-  const requestorEmail = fmsQAdocument.requestorEmail || fmsQAdocument.fmsQA?.find(q => q.fieldName === "email")?.answer;
-  const bookName       = fmsQAdocument.fmsQA?.find(q => q.fieldName === "bookName")?.answer || "Requested Book";
-  const responsiblePerson = completedBy?.empName || email_id;
-  const notIssuedReason   = formStepsAnswers?.reason || null;
-
-  if (stepNum === 2) {
-    if (selectedStatus === "Issued") {
-      await emailService.sendBookIssued({ requestorEmail, bookName });
-
-    } else if (selectedStatus === "Not Issued") {
-      await emailService.sendBookNotIssued({ requestorEmail, reason: notIssuedReason, responsiblePerson });
-    }
-  }
-
-  if (stepNum === 3) {
-    await emailService.sendAcknowledgementConfirmed({ requestorEmail, bookName, responsiblePerson });
-  }
-
-  if (stepNum === 4) {
-    // step 5 planned time = due date for return
-    const step5Task = await FmsTasks.findOne({ fmsMasterId, fmsQAId, stepId: 5 });
-    const dueDate = step5Task?.fmsTaskPlannedCompletionTime || null;
-    await emailService.sendDueDateReminderManual({ requestorEmail, dueDate });
-  }
-
-  if (stepNum === 5) {
-    await emailService.sendBookCollected({ requestorEmail, bookName, responsiblePerson });
-  }
-
-  if (stepNum === 6) {
-    const step5Task = await FmsTasks.findOne({ fmsMasterId, fmsQAId, stepId: 5 });
-    const actualReturnDate = step5Task?.fmsTaskCompletedTime || new Date();
-    await emailService.sendFeedbackRequest({ requestorEmail, bookName, responsiblePerson, actualReturnDate });
-  }
-
-} catch (emailErr) {
-  //  Email failure should NOT block the API response
-  console.error(" Email trigger failed (non-blocking):", emailErr.message);
-}
-//  End Email Block
 
     //  Find next step by step number (sequential — no next[] field in your schema)
     const nextStep = fmsMasterDocument.fmsSteps.find(
@@ -169,7 +218,7 @@ try {
     );
 
     if (!nextStep) {
-      // ✅ This was the last step — mark fmsQA as complete
+      //  This was the last step — mark fmsQA as complete
       console.log("This is the last step — closing fmsQA flow");
       await FmsQA.findOneAndUpdate(
         { fmsQAId },
@@ -180,11 +229,11 @@ try {
 
     console.log("Next step to create:", nextStep.step);
 
-    // ✅ Check if next task already exists
+    //  Check if next task already exists
     const existingTask = await FmsTasks.findOne({ fmsMasterId, fmsQAId, stepId: nextStep.step });
 
     if (existingTask) {
-      // ✅ Task already exists — just update its status based on planned time
+      //  Task already exists — just update its status based on planned time
       const currentDate = moment().tz('Asia/Kolkata').format();
       const updatedStatus = existingTask.fmsTaskPlannedCompletionTime > currentDate
         ? "PENDING"
