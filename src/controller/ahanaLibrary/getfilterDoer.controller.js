@@ -77,6 +77,7 @@ getfilterDoer.get("/getfilterDoer", async (req, res) => {
     const documents = await FmsMaster.find(
       { "requestFormAccess.empId": empId },
       {
+        fmsMasterId: 1,
         fmsName: 1,
         fmsDescription: 1,
         requestForm: 1,
@@ -100,7 +101,114 @@ getfilterDoer.get("/getfilterDoer", async (req, res) => {
   }
 });
 
- getfilterDoer.get("/getmyRequests", async (req, res) => {
+//  getfilterDoer.get("/getmyRequests", async (req, res) => {
+//   try {
+//     const token = req.headers.authorization;
+
+//     if (!token) {
+//       return res.status(401).json({ message: "Authorization header missing" });
+//     }
+
+//     // Fetch user details
+//     const userDetails = await fetchUserDetails(token);
+//     const empId = userDetails.result.emp_id;
+
+//     let { department, requestForm } = req.body;
+
+//     // ✅ Correct query: match fmsQA array element where question is Employee Id AND answer matches logged-in user
+//     const fmsQAQuery = {
+//       fmsQA: {
+//         $elemMatch: {
+//           question: { $regex: /Requester Employee Id/i }, // case-insensitive match
+//           answer: { $regex: new RegExp(`^${empId}$`, "i") } // handles "AS01989" vs "As01989"
+//         }
+//       }
+//     };
+
+//     if (department) {
+//       fmsQAQuery.department = department;
+//     }
+
+//     if (requestForm) {
+//       fmsQAQuery.requestForm = requestForm;
+//     }
+
+//     // Fetch all QA records raised by this employee
+//     const fmsqaAnswers = await FmsQA.find(fmsQAQuery);
+
+//     if (!fmsqaAnswers.length) {
+//       return res.json({
+//         message: {
+//           requests: []
+//         }
+//       });
+//     }
+
+//     // ✅ Get all fmsQAIds from the matched QA records
+//     const fmsQAIds = fmsqaAnswers.map((qa) => qa.fmsQAId);
+
+//     // ✅ Fetch tasks where fmsQAId matches — same fmsQAId links QA and Task
+//     const taskQuery = { fmsQAId: { $in: fmsQAIds } };
+
+//     if (department) {
+//       taskQuery.department = department;
+//     }
+
+//     if (requestForm) {
+//       taskQuery.requestForm = requestForm;
+//     }
+
+//     const fmsTasks = await FmsTasks.find(taskQuery);
+
+//     // ✅ Build a map of tasks keyed by fmsQAId for easy lookup
+//     const tasksByQAId = {};
+//     fmsTasks.forEach((task) => {
+//       if (!tasksByQAId[task.fmsQAId]) {
+//         tasksByQAId[task.fmsQAId] = [];
+//       }
+//       tasksByQAId[task.fmsQAId].push({
+//         fmsTaskId: task.fmsTaskId,
+//         what: task.what,               // ✅ The task "what" (e.g. "Request for book")
+//         fmsTaskStatus: task.fmsTaskStatus,           // ✅ e.g. "COMPLETED"
+//         fmsTaskCompletedStatus: task.fmsTaskCompletedStatus, // e.g. "ONTIME"
+//       });
+//     });
+
+//     // ✅ Combine QA + Task details into one clean response
+//     const requests = fmsqaAnswers.map((qa) => {
+//       // Extract key fields from fmsQA array
+//       const getAnswer = (questionRegex) => {
+//         const found = qa.fmsQA.find((q) => questionRegex.test(q.question));
+//         return found ? found.answer : null;
+//       };
+
+//       return {
+//         fmsQAId: qa.fmsQAId,
+//         fmsName: qa.fmsName,
+//         department: qa.department,           // ✅ Department name
+//         requestForm: qa.requestForm,         // ✅ Request form name
+//         requesterName: getAnswer(/Requester Name/i),
+//         requesterEmail: getAnswer(/Mail Id/i),
+//         requesterEmpId: getAnswer(/Employee Id/i),
+//         book1stPreference: getAnswer(/1st Preference/i),
+//         book2ndPreference: getAnswer(/2nd Preference/i),
+//         tasks: tasksByQAId[qa.fmsQAId] || []  // ✅ Matched tasks with what + status
+//       };
+//     });
+
+//     res.json({
+//       message: {
+//         requests
+//       }
+//     });
+
+//   } catch (error) {
+//     console.error("Error in getmyRequests:", error);
+//     return res.status(500).json({ error: error.message });
+//   }
+// });
+
+getfilterDoer.get("/getmyRequests", async (req, res) => {
   try {
     const token = req.headers.authorization;
 
@@ -108,18 +216,16 @@ getfilterDoer.get("/getfilterDoer", async (req, res) => {
       return res.status(401).json({ message: "Authorization header missing" });
     }
 
-    // Fetch user details
     const userDetails = await fetchUserDetails(token);
     const empId = userDetails.result.emp_id;
 
     let { department, requestForm } = req.body;
 
-    // ✅ Correct query: match fmsQA array element where question is Employee Id AND answer matches logged-in user
     const fmsQAQuery = {
       fmsQA: {
         $elemMatch: {
-          question: { $regex: /Requester Employee Id/i }, // case-insensitive match
-          answer: { $regex: new RegExp(`^${empId}$`, "i") } // handles "AS01989" vs "As01989"
+          question: { $regex: /Requester Employee Id/i },
+          answer: { $regex: new RegExp(`^${empId}$`, "i") }
         }
       }
     };
@@ -132,34 +238,35 @@ getfilterDoer.get("/getfilterDoer", async (req, res) => {
       fmsQAQuery.requestForm = requestForm;
     }
 
-    // Fetch all QA records raised by this employee
     const fmsqaAnswers = await FmsQA.find(fmsQAQuery);
 
     if (!fmsqaAnswers.length) {
-      return res.json({
-        message: {
-          requests: []
-        }
-      });
+      return res.json({ message: { requests: [] } });
     }
 
-    // ✅ Get all fmsQAIds from the matched QA records
     const fmsQAIds = fmsqaAnswers.map((qa) => qa.fmsQAId);
 
-    // ✅ Fetch tasks where fmsQAId matches — same fmsQAId links QA and Task
+    // ✅ Collect all unique fmsMasterIds to fetch master data in one query
+    const fmsMasterIds = [...new Set(fmsqaAnswers.map((qa) => qa.fmsMasterId))];
+
     const taskQuery = { fmsQAId: { $in: fmsQAIds } };
 
-    if (department) {
-      taskQuery.department = department;
-    }
+    if (department) taskQuery.department = department;
+    if (requestForm) taskQuery.requestForm = requestForm;
 
-    if (requestForm) {
-      taskQuery.requestForm = requestForm;
-    }
+    // ✅ Fetch tasks and FmsMaster records in parallel
+    const [fmsTasks, fmsMasterRecords] = await Promise.all([
+      FmsTasks.find(taskQuery),
+      FmsMaster.find({ fmsMasterId: { $in: fmsMasterIds } })
+    ]);
 
-    const fmsTasks = await FmsTasks.find(taskQuery);
+    // ✅ Build a map of FmsMaster keyed by fmsMasterId for easy lookup
+    const masterByMasterId = {};
+    fmsMasterRecords.forEach((master) => {
+      masterByMasterId[master.fmsMasterId] = master;
+    });
 
-    // ✅ Build a map of tasks keyed by fmsQAId for easy lookup
+    // ✅ Build a map of tasks keyed by fmsQAId
     const tasksByQAId = {};
     fmsTasks.forEach((task) => {
       if (!tasksByQAId[task.fmsQAId]) {
@@ -167,39 +274,55 @@ getfilterDoer.get("/getfilterDoer", async (req, res) => {
       }
       tasksByQAId[task.fmsQAId].push({
         fmsTaskId: task.fmsTaskId,
-        what: task.what,               // ✅ The task "what" (e.g. "Request for book")
-        fmsTaskStatus: task.fmsTaskStatus,           // ✅ e.g. "COMPLETED"
-        fmsTaskCompletedStatus: task.fmsTaskCompletedStatus, // e.g. "ONTIME"
+        what: task.what,
+        fmsTaskStatus: task.fmsTaskStatus,
+        fmsTaskCompletedStatus: task.fmsTaskCompletedStatus,
+        fmsTaskStepStatus: task.fmsTaskStepStatus ?? null,
       });
     });
 
-    // ✅ Combine QA + Task details into one clean response
+    const getAnswer = (fmsQAArray, questionRegex) => {
+      const found = fmsQAArray.find((q) => questionRegex.test(q.question));
+      return found ? found.answer : null;
+    };
+
+    // ✅ Combine QA + Task + BookAvailability into one response
     const requests = fmsqaAnswers.map((qa) => {
-      // Extract key fields from fmsQA array
-      const getAnswer = (questionRegex) => {
-        const found = qa.fmsQA.find((q) => questionRegex.test(q.question));
-        return found ? found.answer : null;
+      const masterRecord = masterByMasterId[qa.fmsMasterId];
+
+      // ✅ Get requested books from QA answers
+      const book1st = getAnswer(qa.fmsQA, /1st Preference/i);
+      const book2nd = getAnswer(qa.fmsQA, /2nd Preference/i);
+
+      // ✅ Match book availability from master for requested books
+      const bookAvailability = masterRecord?.BookAvaliblity || [];
+
+      const getBookAvailability = (bookName) => {
+        if (!bookName) return null;
+        const match = bookAvailability.find(
+          (b) => b.BookName.toLowerCase().trim() === bookName.toLowerCase().trim()
+        );
+        return match
+          ? { bookName: match.BookName, availableCount: match.Count }
+          : { bookName, availableCount: 0 }; // ✅ Book not found in master = 0
       };
 
       return {
         fmsQAId: qa.fmsQAId,
         fmsName: qa.fmsName,
-        department: qa.department,           // ✅ Department name
-        requestForm: qa.requestForm,         // ✅ Request form name
-        requesterName: getAnswer(/Requester Name/i),
-        requesterEmail: getAnswer(/Mail Id/i),
-        requesterEmpId: getAnswer(/Employee Id/i),
-        book1stPreference: getAnswer(/1st Preference/i),
-        book2ndPreference: getAnswer(/2nd Preference/i),
-        tasks: tasksByQAId[qa.fmsQAId] || []  // ✅ Matched tasks with what + status
+        department: qa.department,
+        requestForm: qa.requestForm,
+        requesterName: getAnswer(qa.fmsQA, /Requester Name/i),
+        requesterEmail: getAnswer(qa.fmsQA, /Mail Id/i),
+        requesterEmpId: getAnswer(qa.fmsQA, /Employee Id/i),
+        book1stPreference: book1st,
+        book2ndPreference: book2nd,
+        bookAvailability: bookAvailability,
+        tasks: tasksByQAId[qa.fmsQAId] || []
       };
     });
 
-    res.json({
-      message: {
-        requests
-      }
-    });
+    res.json({ message: { requests } });
 
   } catch (error) {
     console.error("Error in getmyRequests:", error);

@@ -12,9 +12,45 @@ const FmsMaster = require("../../models/fmsMaster.model");
 const FmsQA = require("../../models/fmsQA.model");
 
 
-
-
 //find ALL FMS Tasks FOR A USER 
+// getFmsTasks.get('/findAllFmsTasksForUser', async (req, res) => {
+//   try {
+//     const token = req.headers.authorization;
+
+//     if (!token) {
+//       return res.status(401).json({ message: "Authorization header missing" });
+//     }
+
+//     const userDetails = await fetchUserDetails(token);
+//     let { fmsTaskStatus, fmsTaskCompletedStatus } = req.query;
+
+//     const query = {
+//       "fmsTaskDoers.empId": userDetails.result.emp_id
+//     };
+
+//     // Handle multiple values (comma separated)
+//     if (fmsTaskStatus) {
+//       query.fmsTaskStatus = { $in: fmsTaskStatus.split(",") };
+//     }
+
+//     if (fmsTaskCompletedStatus) {
+//       query.fmsTaskCompletedStatus = { $in: fmsTaskCompletedStatus.split(",") };
+//     }
+
+//     const documents = await FmsTasks.find(query);
+
+//     res.json({
+//       message: documents,
+//       status: 200
+//     });
+
+//   } catch (error) {
+//     console.error("Error in findAllFmsTasksForUser:", error);
+//     return res.status(500).json({ error: error.message });
+//   }
+// });
+
+
 getFmsTasks.get('/findAllFmsTasksForUser', async (req, res) => {
   try {
     const token = req.headers.authorization;
@@ -30,7 +66,6 @@ getFmsTasks.get('/findAllFmsTasksForUser', async (req, res) => {
       "fmsTaskDoers.empId": userDetails.result.emp_id
     };
 
-    // Handle multiple values (comma separated)
     if (fmsTaskStatus) {
       query.fmsTaskStatus = { $in: fmsTaskStatus.split(",") };
     }
@@ -41,9 +76,47 @@ getFmsTasks.get('/findAllFmsTasksForUser', async (req, res) => {
 
     const documents = await FmsTasks.find(query);
 
+    // Enrich each task with fmsQAId and requester employee ID from FmsQA collection
+    const enrichedDocuments = await Promise.all(
+      documents.map(async (task) => {
+        const taskObj = task.toObject();
+
+        const fmsQADoc = await FmsQA.findOne({ fmsQAId: taskObj.fmsQAId });
+
+        if (fmsQADoc) {
+          // Extract Request ID
+          const requestId = fmsQADoc.fmsQAId;
+
+          // Extract Requester Employee ID from fmsQA array
+          const empIdEntry = fmsQADoc.fmsQA.find(
+            (qa) => qa.question.trim().toLowerCase() === "requester employee id"
+          );
+          const requesterEmpId = empIdEntry ? empIdEntry.answer : null;
+
+           const empNameEntry = fmsQADoc.fmsQA.find(
+            (qa) => qa.question.trim().toLowerCase() === "requester name"
+          );
+          const requesterEmpName = empNameEntry ? empNameEntry.answer : null;
+
+          return {
+            ...taskObj,
+            requestId,
+            requesterEmpId,
+            requesterEmpName
+          };
+        }
+
+        return {
+          ...taskObj,
+          requestId: null,
+          requesterEmpId: null,
+        };
+      })
+    );
+
     res.json({
-      message: documents,
-      status: 200
+      message: enrichedDocuments,
+      status: 200,
     });
 
   } catch (error) {
@@ -51,117 +124,6 @@ getFmsTasks.get('/findAllFmsTasksForUser', async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 });
-
-
-// getFmsTasks.get('/findAllFmsTasksForUser', async (req, res) => {
-//   try {
-//     const token = req.headers.authorization;
-
-//     if (!token) {
-//       return res.status(401).json({ message: "Authorization header missing" });
-//     }
-
-//     const userDetails = await fetchUserDetails(token);
-//     const UserempId = userDetails.result.emp_id;
-
-//     let { fmsTaskStatus, fmsTaskCompletedStatus } = req.query;
-
-//     // ✅ Query filters (status filters from request)
-//     const matchStage = {
-//       "fmsTaskDoer.empId": UserempId  // Always filter by logged-in user's doer ID
-//     };
-
-//     if (fmsTaskStatus) {
-//       matchStage.fmsTaskStatus = { $in: fmsTaskStatus.split(",") };
-//     }
-
-//     if (fmsTaskCompletedStatus) {
-//       matchStage.fmsTaskCompletedStatus = { $in: fmsTaskCompletedStatus.split(",") };
-//     }
-
-//     const documents = await FmsTasks.aggregate([
-
-//       // ✅ Step 1: Match tasks by doer + optional status filters
-//       {
-//         $match: matchStage
-//       },
-
-//       // 🔗 Step 2: Join FmsQA collection
-//       {
-//         $lookup: {
-//           from: FmsQA.collection.name,
-//           localField: "fmsQAId",
-//           foreignField: "fmsQAId",
-//           as: "qaData"
-//         }
-//       },
-
-//       // Step 3: Unwind QA data
-//       {
-//         $unwind: {
-//           path: "$qaData",
-//           preserveNullAndEmpty: false
-//         }
-//       },
-
-//       // 🎯 Step 4: Extract Requester Employee Id from QA answers
-//       {
-//         $addFields: {
-//           requesterEmpId: {
-//             $toLower: {
-//               $trim: {
-//                 input: {
-//                   $ifNull: [
-//                     {
-//                       $getField: {
-//                         field: "answer",
-//                         input: {
-//                           $arrayElemAt: [
-//                             {
-//                               $filter: {
-//                                 input: "$qaData.fmsQA",
-//                                 as: "q",
-//                                 cond: {
-//                                   $eq: [
-//                                     { $trim: { input: "$$q.question" } },
-//                                     "Requester Employee Id"
-//                                   ]
-//                                 }
-//                               }
-//                             },
-//                             0
-//                           ]
-//                         }
-//                       }
-//                     },
-//                     ""
-//                   ]
-//                 }
-//               }
-//             }
-//           }
-//         }
-//       },
-
-//       // 🧹 Step 5: Remove temp field
-//       {
-//         $project: {
-//           requesterEmpId: 0
-//         }
-//       }
-
-//     ]);
-
-//     res.json({
-//       message: documents,
-//       status: 200
-//     });
-
-//   } catch (error) {
-//     console.error("Error:", error);
-//     return res.status(500).json({ error: error.message });
-//   }
-// });
 
 
 module.exports = getFmsTasks;

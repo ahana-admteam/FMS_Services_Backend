@@ -22,7 +22,7 @@ updateFmsTasks.post('/updateFmsTask', async (req, res) => {
     const userDetails = await fetchUserDetails(token);
     const { emp_id, email_id } = userDetails.result;
 
-    const { fmsMasterId, fmsQAId, fmsTaskId, fmsWhat, formStepsAnswers, fmsTaskQualityDetails ,selectedStatus,requestorFeedback   } = req.body;
+    const { fmsMasterId, fmsQAId, fmsTaskId, fmsWhat, formStepsAnswers, fmsTaskQualityDetails ,selectedStatus,requestorFeedback,completedBy   } = req.body;
 
     console.log("req.body",req.body);
     
@@ -87,10 +87,83 @@ if (
   formStepsAnswers,
   fmsTaskQualityDetails,
   selectedStatus,
-  formattedFeedback
+  formattedFeedback,
+  completedBy
 );
 
-    // ✅ Find next step by step number (sequential — no next[] field in your schema)
+console.log("selectedStatus",selectedStatus);
+
+// STOP FLOW IF NEGATIVE RESPONSE
+
+const negativeStatuses = ["NOT AVAILABLE", "NOT ISSUED", "REJECTED"];
+
+const statusName = selectedStatus?.statusName?.toUpperCase();
+
+const isNegative = negativeStatuses.includes(statusName);
+
+  if (isNegative) {
+  console.log("Negative response detected — stopping flow");
+
+  // Option 1: Close entire flow
+  await FmsQA.findOneAndUpdate(
+    { fmsQAId },
+    { $set: { fmsQAisLive: false } }
+  );
+
+  return res.json({
+    message: "Task Updated — Flow stopped due to negative response",
+    status: 200
+  });
+}
+
+// ─── Email Trigger Block 
+try {
+  const stepNum = currentStep.step;
+
+  // Pull requestor info from fmsQAdocument
+  // Adjust field names to match your actual fmsQA schema
+  const requestorEmail = fmsQAdocument.requestorEmail || fmsQAdocument.fmsQA?.find(q => q.fieldName === "email")?.answer;
+  const bookName       = fmsQAdocument.fmsQA?.find(q => q.fieldName === "bookName")?.answer || "Requested Book";
+  const responsiblePerson = completedBy?.empName || email_id;
+  const notIssuedReason   = formStepsAnswers?.reason || null;
+
+  if (stepNum === 2) {
+    if (selectedStatus === "Issued") {
+      await emailService.sendBookIssued({ requestorEmail, bookName });
+
+    } else if (selectedStatus === "Not Issued") {
+      await emailService.sendBookNotIssued({ requestorEmail, reason: notIssuedReason, responsiblePerson });
+    }
+  }
+
+  if (stepNum === 3) {
+    await emailService.sendAcknowledgementConfirmed({ requestorEmail, bookName, responsiblePerson });
+  }
+
+  if (stepNum === 4) {
+    // step 5 planned time = due date for return
+    const step5Task = await FmsTasks.findOne({ fmsMasterId, fmsQAId, stepId: 5 });
+    const dueDate = step5Task?.fmsTaskPlannedCompletionTime || null;
+    await emailService.sendDueDateReminderManual({ requestorEmail, dueDate });
+  }
+
+  if (stepNum === 5) {
+    await emailService.sendBookCollected({ requestorEmail, bookName, responsiblePerson });
+  }
+
+  if (stepNum === 6) {
+    const step5Task = await FmsTasks.findOne({ fmsMasterId, fmsQAId, stepId: 5 });
+    const actualReturnDate = step5Task?.fmsTaskCompletedTime || new Date();
+    await emailService.sendFeedbackRequest({ requestorEmail, bookName, responsiblePerson, actualReturnDate });
+  }
+
+} catch (emailErr) {
+  //  Email failure should NOT block the API response
+  console.error(" Email trigger failed (non-blocking):", emailErr.message);
+}
+//  End Email Block
+
+    //  Find next step by step number (sequential — no next[] field in your schema)
     const nextStep = fmsMasterDocument.fmsSteps.find(
       step => step.step === currentStep.step + 1
     );
@@ -162,24 +235,53 @@ return res.json({
 
 
 // ─── Update Task to COMPLETED ─────────────────────────────────────────────────
-async function updateTaskStatus(fmsTaskId, formStepsAnswers, fmsTaskQualityDetails,selectedStatus,formattedFeedback) {
+async function updateTaskStatus(fmsTaskId, formStepsAnswers, fmsTaskQualityDetails,selectedStatus,formattedFeedback, completedBy   ) {
   try {
     const currentDate = moment().tz('Asia/Kolkata').format();
 
     const task = await FmsTasks.findOneAndUpdate(
       { fmsTaskId },
       {
-        $set: {
-          fmsTaskStatus: "COMPLETED",
-          formStepsAnswers: formStepsAnswers || null,
-          fmsTaskQualityDetails: fmsTaskQualityDetails || null,
-          fmsTaskCompletedTime: currentDate,
-          fmsTaskStepStatus: selectedStatus || null,
-          // requestorFeedback : formattedFeedback    || null
-          ...(Array.isArray(formattedFeedback) && formattedFeedback.length > 0 && {
-          requestorFeedback: formattedFeedback
-})
-        }
+//         $set: {
+//           fmsTaskStatus: "COMPLETED",
+//           formStepsAnswers: formStepsAnswers || null,
+//           fmsTaskQualityDetails: fmsTaskQualityDetails || null,
+//           fmsTaskCompletedTime: currentDate,
+//           fmsTaskStepStatus: selectedStatus || null,
+//           // requestorFeedback : formattedFeedback    || null
+//           ...(Array.isArray(formattedFeedback) && formattedFeedback.length > 0 && {
+//           requestorFeedback: formattedFeedback,
+//           completedBy:completedBy
+// }),
+
+//           //completed by
+//           ...(completedBy && {
+//             completedBy: {
+//               empId: completedBy.empId,
+//               empName: completedBy.empName
+//             }
+//           })
+
+//         }
+$set: {
+  fmsTaskStatus: "COMPLETED",
+  formStepsAnswers: formStepsAnswers || null,
+  fmsTaskQualityDetails: fmsTaskQualityDetails || null,
+  fmsTaskCompletedTime: currentDate,
+  fmsTaskStepStatus: selectedStatus || null,
+
+  //  feedback (only if exists)
+  ...(Array.isArray(formattedFeedback) && formattedFeedback.length > 0 && {
+    requestorFeedback: formattedFeedback
+  }),
+
+  //  ALWAYS store completedBy
+  completedBy: {
+    empId: completedBy?.empId || null,
+    empName: completedBy?.empName || null
+  }
+}
+        
       },
       { new: true }
     );
@@ -201,7 +303,7 @@ async function updateTaskStatus(fmsTaskId, formStepsAnswers, fmsTaskQualityDetai
     // ✅ If this task was transferred from another task, update that too
     if (task.isTransferredFrom && task.transferredFromTaskId) {
       console.log("Updating transferred-from task:", task.transferredFromTaskId);
-      await updateTaskStatus(task.transferredFromTaskId, formStepsAnswers, fmsTaskQualityDetails,selectedStatus,formattedFeedback   );
+      await updateTaskStatus(task.transferredFromTaskId, formStepsAnswers, fmsTaskQualityDetails,selectedStatus,formattedFeedback ,completedBy  );
     }
 
   } catch (error) {
@@ -236,7 +338,7 @@ async function createNextTask(fmsMasterDocument, step, fmsQAId, doers) {
       fmsName: fmsMasterDocument.fmsName,
       requestForm: fmsMasterDocument.requestForm,
       department: fmsMasterDocument.department,
-      fmsTaskDoers: doers,                // ✅ Direct array [{ empId, empName }]
+      fmsTaskDoers: doers,             
       fmsTaskStatus: "PENDING",
       fmsTaskCompletedStatus: null,
       plannedDate: step.plannedDate,

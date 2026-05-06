@@ -1,6 +1,8 @@
 const express = require('express');
 const swaggerUi = require("swagger-ui-express");
 const app = express();
+const runReminderJob = require("../jobs/reminderJob");
+
 const cors = require("cors");
 
 // Import Middlewares
@@ -70,10 +72,22 @@ app.post("/test", (req, res) => {
   });
 });
 
-
-// ==========================
-// Get User Details API (NEW)
-// ==========================
+// test email trigger
+app.get("/api/test-email", async (req, res) => {
+  try {
+    const transporter = require("../config/mailer");
+    await transporter.sendMail({
+      from: `"Ahana Library" <${process.env.EMAIL_ID}>`,
+      to: "veerannab97@gmail.com",
+      subject: "Ahana Library SMTP Test",
+      html: "<p>SMTP is working!</p>",
+    });
+    res.json({ success: true, message: "Test email sent!" });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+// Get User Details API
 app.post("/api/getUserDetails", async (req, res) => {
   try {
 
@@ -109,5 +123,5 @@ app.post("/api/getUserDetails", async (req, res) => {
   }
 });
 
-
+runReminderJob();
 module.exports = app;
