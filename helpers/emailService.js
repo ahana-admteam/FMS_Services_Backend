@@ -1,10 +1,9 @@
 const transporter = require("../config/mailer");
 
 const LIBRARY_EMAIL = "ahana.library@ahanait.com";
-const FEEDBACK_LINK = process.env.FEEDBACK_FORM_LINK || "https://your-feedback-link.com";
+const FEEDBACK_LINK = process.env.FEEDBACK_FORM_LINK || "https://feedback-link.com";
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
-// const send = (mailOptions) => transporter.sendMail(mailOptions);
 const send = (mailOptions) => transporter.sendMail({
   from: `"Ahana Library" <${process.env.EMAIL_ID}>`,
   ...mailOptions,

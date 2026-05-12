@@ -58,9 +58,10 @@ getfilterDoer.get("/getfilterDoer", async (req, res) => {
     }
   });
 
-  getfilterDoer.get("/getFmsrequestform", async (req, res) => {
+getfilterDoer.post("/getFmsrequestform", async (req, res) => {
   try {
     const token = req.headers.authorization;
+    const { department } = req.body; // ✅ get from body
 
     if (!token) {
       return res.status(401).json({ message: "Authorization header missing" });
@@ -74,8 +75,17 @@ getfilterDoer.get("/getfilterDoer", async (req, res) => {
 
     const empId = userDetails.result.emp_id;
 
+    // ✅ Build filter
+    let filter = {
+      "requestFormAccess.empId": empId
+    };
+
+    if (department) {
+      filter.department = department;
+    }
+
     const documents = await FmsMaster.find(
-      { "requestFormAccess.empId": empId },
+      filter,
       {
         fmsMasterId: 1,
         fmsName: 1,
