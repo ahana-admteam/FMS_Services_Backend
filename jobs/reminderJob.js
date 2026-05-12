@@ -1,4 +1,3 @@
-// jobs/reminderJob.js
 const cron = require("node-cron");
 const FmsRequest = require("../src/models/fmsTasks.model");
 const { sendScheduledReminder } = require("../helpers/emailService");
