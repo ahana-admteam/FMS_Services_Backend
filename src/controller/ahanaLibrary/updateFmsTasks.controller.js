@@ -530,6 +530,28 @@ updateFmsTasks.post('/updateFmsTask', async (req, res) => {
 
     //  Fetch fmsQA document
     const fmsQAdocument = await FmsQA.findOne({ fmsMasterId, fmsQAId });
+
+if (!fmsQAdocument) {
+  return res.status(404).json({ message: "fmsQA document not found" });
+}
+
+    // ─── Extract Requestor Details ─────────────────────────────
+const requestorEmpId =
+  fmsQAdocument.fmsQA?.find(q =>
+    q.question?.toLowerCase().includes("employee id")
+  )?.answer || null;
+
+const requestorName =
+  fmsQAdocument.fmsQA?.find(q =>
+    q.question?.toLowerCase().includes("name")
+  )?.answer || null;
+
+const requestorEmail =
+  fmsQAdocument.fmsQA?.find(q =>
+    q.question?.toLowerCase().includes("mail") ||
+    q.question?.toLowerCase().includes("email")
+  )?.answer || null;
+
     if (!fmsQAdocument) {
       return res.status(404).json({ message: "fmsQA document not found" });
     }
@@ -731,10 +753,44 @@ updateFmsTasks.post('/updateFmsTask', async (req, res) => {
         );
         await createTxSteps(fmsMasterDocument, txSteps, fmsQAId, fmsQAdocument.fmsQA);
       } else {
-        const doers = nextStep.who?.length > 0
-          ? nextStep.who
-          : [{ empId: emp_id, email: email_id }];
-        await createNextTask(fmsMasterDocument, nextStep, fmsQAId, doers);
+        // const doers = nextStep.who?.length > 0
+        //   ? nextStep.who
+        //   : [{ empId: emp_id, email: email_id }];
+        // await createNextTask(fmsMasterDocument, nextStep, fmsQAId, doers);
+        
+        // STATIC + DYNAMIC ASSIGNMENT
+        let doers = [];
+
+        //REQUESTOR based assignment
+        if (nextStep.assignedTo === "REQUESTOR") {
+
+          doers = [{
+            empId:
+              fmsQAdocument?.fmsQACreatedBy?.empId || null,
+
+            empName:
+              fmsQAdocument?.fmsQACreatedBy?.emp_name || "Requestor",
+
+            email:
+              fmsQAdocument?.fmsQACreatedBy?.email || null
+          }];
+
+          console.log("Task assigned to REQUESTOR:", doers);
+
+        } else {
+
+          // Existing logic
+          doers = nextStep.who?.length > 0
+            ? nextStep.who
+            : [{ empId: emp_id, email: email_id }];
+        }
+
+        await createNextTask(
+          fmsMasterDocument,
+          nextStep,
+          fmsQAId,
+          doers
+        );
       }
     }
 
@@ -1007,7 +1063,18 @@ async function createTxSteps(fmsMasterDocument, txSteps, fmsQAId, fmsQA) {
         CurrentIST()
       );
 
-      const stepDoers = step.who?.length > 0 ? step.who : [];
+      // const stepDoers = step.who?.length > 0 ? step.who : [];
+      let stepDoers = [];
+
+if (step.assignedTo === "REQUESTOR") {
+  stepDoers = [{
+    empId: requestorEmpId,
+    empName: requestorName,
+    email: requestorEmail
+  }];
+} else {
+  stepDoers = step.who?.length > 0 ? step.who : [];
+}
 
       await FmsTasks.create({
         fmsTaskId,
