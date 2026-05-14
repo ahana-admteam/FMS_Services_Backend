@@ -1,6 +1,7 @@
 const transporter = require("../config/mailer");
 
-const LIBRARY_EMAIL = "ahana.library@ahanait.com";
+// const LIBRARY_EMAIL = "ahana.library@ahanait.com";
+const LIBRARY_EMAIL = " ";
 const FEEDBACK_LINK = process.env.FEEDBACK_FORM_LINK || "https://feedback-link.com";
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
