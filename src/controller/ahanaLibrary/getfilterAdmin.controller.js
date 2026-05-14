@@ -25,6 +25,7 @@ getfilterAdmin.get("/getfilterviewFms", async (req, res) => {
 
     // Build dynamic query
     const query = {};
+console.log("Department from API:", department);
 
     if (department) {
       query.department = department;
@@ -42,6 +43,17 @@ getfilterAdmin.get("/getfilterviewFms", async (req, res) => {
     const documents = await FmsMaster.find(query);
     const fmsqaAnswers = await FmsQA.find(query);
     const fmsTasks = await FmsTasks.find(query);
+
+    const allDepartments = await FmsQA.find({}, { department: 1, _id: 0 });
+
+console.log("All Departments:", allDepartments);
+
+    console.log(
+  "Departments from DB:",
+  fmsqaAnswers.map((item) => item.department)
+);
+     console.log("FMS QA Details:", fmsqaAnswers);
+
 
     res.json({
       message: {

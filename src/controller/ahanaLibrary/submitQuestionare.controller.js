@@ -263,7 +263,7 @@ submitQuestionare.post('/submitFmsUserQAcreateTaskStep1', async (req, res) => {
     const userDetails = await fetchUserDetails(token);
     const { emp_id, email_id } = userDetails.result;
 
-    const triggeredBy = { empId: emp_id, email: email_id };
+    const triggeredBy = { empId: emp_id, email: email_id, timestamp: new Date(), };
 
     // ✅ Validate request body
     const validationErrors = validateSubmitPayload(req.body);
@@ -275,6 +275,14 @@ submitQuestionare.post('/submitFmsUserQAcreateTaskStep1', async (req, res) => {
     const lastQADoc = await FmsQA.findOne().sort({ fmsQAId: -1 });
     const fmsQAId = lastQADoc ? lastQADoc.fmsQAId + 1 : 1;
 
+    // ✅ Fetch fmsMaster
+const fmsMaster = await FmsMaster.findOne({ fmsMasterId: req.body.fmsMasterID });
+
+if (!fmsMaster) {
+  return res.status(404).json({ message: "fmsMaster not found for given fmsMasterID" });
+}
+
+
     // ✅ Save QA record
     await FmsQA.create({
       fmsQAId,
@@ -282,15 +290,16 @@ submitQuestionare.post('/submitFmsUserQAcreateTaskStep1', async (req, res) => {
       fmsMasterId: req.body.fmsMasterID,
       fmsName: req.body.fmsName,
       requestForm: req.body.requestForm,
-      department: req.body.department,
+      // department: req.body.department,
+        department: fmsMaster.department,
       fmsQA: req.body.fmsQA,
     });
 
-    // ✅ Fetch fmsMaster
-    const fmsMaster = await FmsMaster.findOne({ fmsMasterId: req.body.fmsMasterID });
-    if (!fmsMaster) {
-      return res.status(404).json({ message: "fmsMaster not found for given fmsMasterID" });
-    }
+    // // ✅ Fetch fmsMaster
+    // const fmsMaster = await FmsMaster.findOne({ fmsMasterId: req.body.fmsMasterID });
+    // if (!fmsMaster) {
+    //   return res.status(404).json({ message: "fmsMaster not found for given fmsMasterID" });
+    // }
 
     if (!Array.isArray(fmsMaster.fmsSteps) || fmsMaster.fmsSteps.length === 0) {
       return res.status(400).json({ message: "fmsMaster has no steps defined" });
