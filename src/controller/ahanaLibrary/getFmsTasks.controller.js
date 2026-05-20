@@ -331,10 +331,10 @@ getFmsTasks.post('/delegateFmsTask', async (req, res) => {
       {
         $set: {
           //  New owner
-          assignedTo: {
-            empId: delegateEmpId,
-            empName: delegateEmpName
-          },
+          // assignedTo: {
+          //   empId: delegateEmpId,
+          //   empName: delegateEmpName
+          // },
 
           //  Delegation block
           delegation: {
@@ -370,6 +370,7 @@ getFmsTasks.post('/delegateFmsTask', async (req, res) => {
 
 // ACCEPT DELEGATION
 getFmsTasks.post('/acceptDelegation', async (req, res) => {
+   const { fmsTaskId, delegateEmpId, delegateEmpName } = req.body;
   try {
     const token = req.headers.authorization;
 
@@ -382,7 +383,6 @@ getFmsTasks.post('/acceptDelegation', async (req, res) => {
     const userDetails = await fetchUserDetails(token);
     const loggedEmpId = userDetails.result.emp_id;
 
-    const { fmsTaskId } = req.body;
 
     if (!fmsTaskId) {
       return res.status(400).json({
@@ -411,7 +411,11 @@ getFmsTasks.post('/acceptDelegation', async (req, res) => {
       { fmsTaskId: Number(fmsTaskId) },
       {
         $set: {
-          "delegation.status": "ACCEPTED"
+          "delegation.status": "ACCEPTED",
+           assignedTo: {
+            empId: delegateEmpId,
+            empName: delegateEmpName
+          },
         }
       },
       { new: true }

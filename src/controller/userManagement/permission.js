@@ -20,7 +20,7 @@ permission.post("/permissionSteps", async (req, res) => {
 
     const userDetails = await fetchUserDetails(token);
 
-    // ✅ Expect employees array from body: [{ empId, empName }, ...]
+    //  Expect employees array from body: [{ empId, empName }, ...]
     const {department, fmsName, StepId, employees } = req.body;
 
     if (!fmsName || !StepId || !department) {
@@ -31,18 +31,18 @@ permission.post("/permissionSteps", async (req, res) => {
       return res.status(400).json({ message: "employees array is required in body" });
     }
 
-    // ✅ Update employees inside the matching step -> matching department
+    //  Update employees inside the matching step -> matching department
     const updated = await FmsMaster.updateOne(
   {
     fmsName,
     "fmsSteps.step": parseInt(StepId)
   },
   {
-    $push: {
-      "fmsSteps.$.who": {
-        $each: employees
-      }
-    }
+    $addToSet: {
+  "fmsSteps.$.who": {
+    $each: employees
+  }
+}
   }
 );
 
@@ -141,11 +141,12 @@ permission.post("/permissionRequestForm", async (req, res) => {
       return res.status(400).json({ message: "employees array is required in body" });
     }
 
-    // ✅ Update employees inside the matching step -> matching department
+    //  Update employees inside the matching step -> matching department
     const updated = await FmsMaster.updateOne(
   {
-    $push: {
-      "requestFormAccess": {
+  
+    $addToSet: {
+    "requestFormAccess": {
         $each: employees
       }
     }
